@@ -1,0 +1,1439 @@
+<title>Squiggle</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shantell+Sans:wght@400;600;800&display=swap">
+<style>
+/* Layout: a big sheet of paper on a desk you can zoom and pan. Tools on a left rail,
+   music settings top right, sound / paint / brush in a dock at the bottom. */
+:root {
+  --bg: #DDE2EC;
+  --paper: #FCFCFA;
+  --paper-shadow: #1D21402E;
+  --ink: #1D2140;
+  --muted: #5F6688;
+  --dock: #FFFFFFEB;
+  --dock-edge: #D0D6E6;
+  --chip: #E8EBF4;
+  --chip-edge: #1D214026;
+  --shadow: #1D214038;
+  --ring: #1D214055;
+  --bell: #2F66F5;
+  --pluck: #EE3D67;
+  --whistle: #10A273;
+  --bass: #7B4CF0;
+  --drums: #EE8A0C;
+  --font-display: "Shantell Sans", "Comic Neue", ui-rounded, system-ui, sans-serif;
+  --font-ui: "Shantell Sans", ui-rounded, system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12152C; --paper-shadow: #00000099; --ink: #E7E9F7; --muted: #99A0C4;
+    --dock: #1D2146EB; --dock-edge: #2F3563; --chip: #2A2F5A; --chip-edge: #FFFFFF2E;
+    --shadow: #00000080; --ring: #E7E9F755;
+    --bell: #6290FF; --pluck: #FF5C82; --whistle: #2AD39C; --bass: #A07EFF; --drums: #FFA53A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12152C; --paper-shadow: #00000099; --ink: #E7E9F7; --muted: #99A0C4;
+  --dock: #1D2146EB; --dock-edge: #2F3563; --chip: #2A2F5A; --chip-edge: #FFFFFF2E;
+  --shadow: #00000080; --ring: #E7E9F755;
+  --bell: #6290FF; --pluck: #FF5C82; --whistle: #2AD39C; --bass: #A07EFF; --drums: #FFA53A;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+#paper {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.panel {
+  background: var(--dock);
+  border: 1px solid var(--dock-edge);
+  box-shadow: 0 14px 34px -16px var(--shadow);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: fixed;
+  z-index: 2;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px 16px;
+  pointer-events: none;
+}
+.brand { display: grid; gap: 4px; max-width: 46ch; min-width: 0; }
+.brand h1 { margin: 0; font: 800 clamp(26px, 3.4vw, 34px)/1 var(--font-display); letter-spacing: -0.01em; }
+.brand p { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
+.brand #hint { min-height: 2.8em; }
+.zoomed .brand p { visibility: hidden; }
+.brand .keys { font-size: 11.5px; }
+.settings {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 16px;
+  padding: 8px 14px 10px;
+  border-radius: 18px;
+}
+
+/* ---------- shared controls ---------- */
+.dial { display: flex; flex-direction: column; gap: 7px; font: 600 11px/1 var(--font-ui); color: var(--muted); }
+.dial output { color: var(--ink); font-variant-numeric: tabular-nums; }
+.dial input[type="range"] { width: 104px; margin: 0; accent-color: var(--ink); }
+.dial select {
+  font: 600 13px var(--font-ui);
+  color: var(--ink);
+  background: var(--chip);
+  border: 1px solid var(--dock-edge);
+  border-radius: 10px;
+  padding: 4px 6px;
+}
+.zoom { display: flex; align-items: center; gap: 2px; background: var(--chip); border-radius: 12px; padding: 2px; }
+.zoom button {
+  min-width: 30px; height: 28px;
+  border: 0; border-radius: 10px;
+  background: none; color: var(--ink);
+  font: 700 15px/1 var(--font-ui);
+  cursor: pointer;
+}
+.zoom #zoomFit { min-width: 54px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.zoom button:hover { background: var(--dock); }
+
+.tile {
+  min-width: 46px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 4px 2px;
+  background: none; border: 0; border-radius: 12px;
+  color: var(--muted);
+  font: 600 11px/1 var(--font-ui);
+  cursor: pointer;
+}
+.tile .face {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  transition: transform .15s, box-shadow .15s;
+}
+.tile svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.swatch .face { background: var(--c); color: var(--paper); }
+.swatch .face svg { stroke-width: 2.6; }
+.swatch[aria-checked="true"] { color: var(--ink); }
+.swatch[aria-checked="true"] .face { transform: scale(1.1); box-shadow: 0 0 0 3px var(--dock), 0 0 0 5.5px var(--c); }
+.tool .face { background: var(--chip); color: var(--ink); }
+.tool[aria-pressed="true"] { color: var(--ink); }
+.tool[aria-pressed="true"] .face { background: var(--ink); color: var(--bg); }
+.tile:disabled { opacity: .4; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, .custom:focus-within {
+  outline: 2px solid var(--ink); outline-offset: 2px;
+}
+
+/* ---------- left rail ---------- */
+.rail {
+  position: fixed;
+  z-index: 2;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 5px;
+  border-radius: 20px;
+}
+.rail hr { width: 28px; margin: 4px auto; border: 0; border-top: 1px solid var(--dock-edge); }
+
+/* ---------- bottom dock ---------- */
+.dock {
+  position: fixed;
+  z-index: 2;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  pointer-events: none;
+}
+.dock-inner {
+  pointer-events: auto;
+  margin-inline: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  scrollbar-width: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 24px;
+}
+.dock-inner::-webkit-scrollbar { display: none; }
+.group { flex: none; display: flex; flex-direction: column; gap: 6px; }
+.group + .group { padding-left: 14px; border-left: 1px solid var(--dock-edge); }
+.group-label { font: 600 10px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.group-body { display: flex; align-items: center; gap: 4px; }
+
+.play {
+  flex: none;
+  align-self: center;
+  width: 54px; height: 54px;
+  border: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--ink); color: var(--bg);
+  cursor: pointer;
+  transition: transform .12s;
+}
+.play:active { transform: scale(.94); }
+.play svg { width: 24px; height: 24px; fill: currentColor; }
+.play.nudge { animation: nudge 1.8s ease-in-out infinite; }
+@keyframes nudge {
+  0% { box-shadow: 0 0 0 0 var(--ring); }
+  70%, 100% { box-shadow: 0 0 0 14px transparent; }
+}
+
+.palette { display: grid; grid-template-columns: repeat(11, 22px); gap: 5px; }
+.chip {
+  width: 22px; height: 22px; padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--chip-edge);
+  background: var(--c);
+  cursor: pointer;
+}
+.chip[aria-checked="true"] { box-shadow: 0 0 0 2px var(--dock), 0 0 0 4px var(--ink); }
+.custom {
+  position: relative;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--chip-edge);
+  background: conic-gradient(#F2464B, #F5C83A, #39C16C, #2FA9E8, #5B5BF0, #D54BD8, #F2464B);
+  cursor: pointer;
+}
+.custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.custom.on { box-shadow: 0 0 0 2px var(--dock), 0 0 0 4px var(--ink); }
+.custom.on::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--c); }
+
+.brush { display: flex; align-items: center; gap: 12px; }
+.brush .dials { display: grid; gap: 8px; }
+.brush .dial { flex-direction: row; align-items: center; gap: 8px; }
+.brush .dial span { width: 44px; }
+.brush .dial input[type="range"] { width: 96px; }
+.preview { width: 40px; height: 40px; border-radius: 10px; background: var(--paper); border: 1px solid var(--chip-edge); display: grid; place-items: center; }
+.preview i { display: block; border-radius: 50%; background: var(--c); }
+
+.toast {
+  position: fixed;
+  z-index: 3;
+  left: 50%;
+  bottom: calc(var(--dock-h, 80px) + 28px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 8px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--ink); color: var(--bg);
+  font: 600 13px var(--font-ui);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (hover: none) { .brand .keys { display: none; } }
+@media (max-width: 760px) {
+  .brand p { display: none; }
+  .settings { gap: 8px 10px; padding: 6px 10px 8px; }
+  .settings .dial input[type="range"] { width: 76px; }
+  .rail .tile { min-width: 40px; }
+  .rail .tile .face { width: 30px; height: 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .play.nudge { animation: none; box-shadow: 0 0 0 4px var(--ring); }
+  .tile .face, .toast { transition: none; }
+}
+</style>
+
+<canvas id="paper" aria-label="Drawing paper. Paint on it to make music."></canvas>
+
+<header class="topbar" id="topbar">
+  <div class="brand">
+    <h1><span style="color: var(--bell)">S</span><span style="color: var(--pluck)">q</span><span style="color: var(--whistle)">u</span><span style="color: var(--bass)">i</span><span style="color: var(--drums)">g</span><span style="color: var(--bell)">g</span><span style="color: var(--pluck)">l</span><span style="color: var(--whistle)">e</span></h1>
+    <p id="hint">Paint on the paper and it plays from left to right. Higher marks are higher notes.</p>
+    <p class="keys">Space play · B brush · E eraser · H hand · [ ] brush size · scroll to move · ⌘ + scroll or pinch to zoom</p>
+  </div>
+  <div class="settings panel">
+    <label class="dial" for="tempo">
+      <span>Speed <output id="tempoOut">104</output> bpm</span>
+      <input id="tempo" type="range" min="60" max="160" step="2" value="104">
+    </label>
+    <label class="dial" for="scale">
+      <span>Mood</span>
+      <select id="scale">
+        <option value="happy">Happy</option>
+        <option value="moody">Moody</option>
+        <option value="bright">Bright</option>
+        <option value="bluesy">Bluesy</option>
+        <option value="dreamy">Dreamy</option>
+      </select>
+    </label>
+    <label class="dial" for="paperSize">
+      <span>Paper</span>
+      <select id="paperSize">
+        <option value="wide">Wide</option>
+        <option value="tall">Tall</option>
+        <option value="square">Square</option>
+      </select>
+    </label>
+    <div class="dial">
+      <span>Zoom</span>
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button id="zoomOut" type="button" aria-label="Zoom out" title="Zoom out (−)">−</button>
+        <button id="zoomFit" type="button" title="Fit the paper to the screen (0)">100%</button>
+        <button id="zoomIn" type="button" aria-label="Zoom in" title="Zoom in (+)">+</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="rail panel" id="rail" aria-label="Tools">
+  <button class="tile tool" id="toolBrush" type="button" aria-pressed="true" title="Brush (B)">
+    <span class="face"><svg viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 10 19H5v-5z"/><path d="M12.5 6.5l5 5"/></svg></span>Brush
+  </button>
+  <button class="tile tool" id="toolErase" type="button" aria-pressed="false" title="Eraser (E)">
+    <span class="face"><svg viewBox="0 0 24 24"><path d="M4 16.5 13.5 7a2 2 0 0 1 2.8 0l2.7 2.7a2 2 0 0 1 0 2.8L12 19.5H7z"/><path d="M9.5 11l5.5 5.5M12 19.5h8"/></svg></span>Eraser
+  </button>
+  <button class="tile tool" id="toolHand" type="button" aria-pressed="false" title="Move the paper (H)">
+    <span class="face"><svg viewBox="0 0 24 24"><path d="M8 12V6.5a1.5 1.5 0 0 1 3 0V11M11 10V5a1.5 1.5 0 0 1 3 0v6M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5a6.5 6.5 0 0 1-11.6 4L3.6 15a1.5 1.5 0 0 1 2.3-2l2.1 2"/></svg></span>Hand
+  </button>
+  <hr>
+  <button class="tile tool" id="undo" type="button" title="Undo (⌘Z)" disabled>
+    <span class="face"><svg viewBox="0 0 24 24"><path d="M9 7 4.5 11.5 9 16"/><path d="M5 11.5h9a5 5 0 0 1 0 10h-2"/></svg></span>Undo
+  </button>
+  <button class="tile tool" id="redo" type="button" title="Redo (⇧⌘Z)" disabled>
+    <span class="face"><svg viewBox="0 0 24 24"><path d="M15 7l4.5 4.5L15 16"/><path d="M19 11.5h-9a5 5 0 0 0 0 10h2"/></svg></span>Redo
+  </button>
+  <button class="tile tool" id="clear" type="button" title="Clear the paper">
+    <span class="face"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></span>Clear
+  </button>
+</nav>
+
+<div class="dock" id="dock">
+  <div class="dock-inner panel" id="dockInner" role="toolbar" aria-label="Sound and paint">
+    <button class="play" id="play" type="button" aria-label="Play">
+      <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+    </button>
+    <div class="group">
+      <span class="group-label" id="soundLabel">Sound</span>
+      <div class="group-body" id="swatches" role="radiogroup" aria-labelledby="soundLabel"></div>
+    </div>
+    <div class="group">
+      <span class="group-label" id="paintLabel">Paint</span>
+      <div class="palette" id="palette" role="radiogroup" aria-labelledby="paintLabel"></div>
+    </div>
+    <div class="group">
+      <span class="group-label">Brush</span>
+      <div class="brush">
+        <span class="preview" aria-hidden="true"><i id="brushDot"></i></span>
+        <div class="dials">
+          <label class="dial" for="size"><span>Size <output id="sizeOut">12</output></span><input id="size" type="range" min="1" max="120" value="12"></label>
+          <label class="dial" for="opacity"><span>Opacity</span><input id="opacity" type="range" min="10" max="100" step="5" value="100"></label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // The paper is split into STEPS columns (16th notes, four bars per loop) and ROWS
+  // pitch rows. Rows map onto the chosen scale, so anything painted stays in key.
+  const STEPS = 64, ROWS = 15, MAX_VOICES = 12, MAX_STROKES = 8000, MAX_POINTS = 6000;
+  const PAPERS = { wide: [3200, 2000], tall: [2000, 2800], square: [2400, 2400] };
+  const INSTS = ['bell', 'pluck', 'whistle', 'bass', 'drums'];
+  const NAMES = { bell: 'Bell', pluck: 'Pluck', whistle: 'Whistle', bass: 'Bass', drums: 'Drums' };
+  const INST_COLOR = { bell: '#2F66F5', pluck: '#EE3D67', whistle: '#10A273', bass: '#7B4CF0', drums: '#EE8A0C' };
+  const BASE = { bell: 60, pluck: 48, whistle: 48, bass: 36 };
+  const SCALES = {
+    happy: [0, 2, 4, 7, 9],
+    moody: [0, 3, 5, 7, 10],
+    bright: [0, 2, 4, 5, 7, 9, 11],
+    bluesy: [0, 3, 5, 6, 7, 10],
+    dreamy: [0, 2, 4, 6, 7, 9, 11],
+  };
+  const PALETTE = [
+    ['Black', '#1B1B1F'], ['Charcoal', '#4A4A55'], ['Gray', '#9A9AA6'], ['White', '#FFFFFF'],
+    ['Umber', '#4E3423'], ['Sienna', '#8A5A36'], ['Ochre', '#C99A4B'], ['Light skin', '#F1C9A5'],
+    ['Warm skin', '#D9A37A'], ['Deep skin', '#8C5A3C'], ['Crimson', '#C8273E'],
+    ['Orange', '#F07C1E'], ['Yellow', '#F5C83A'], ['Sage', '#7C9A64'], ['Forest', '#2E5A3A'],
+    ['Teal', '#1F7A8C'], ['Sky', '#6FB6E8'], ['Ultramarine', '#2B3FA8'], ['Violet', '#6B3FA0'],
+    ['Pink', '#F08BB0'], ['Blush', '#E8A0A0'],
+  ];
+  const STORE_KEY = 'squiggle:v2';
+  const SWATCH_ICON = '<svg viewBox="0 0 24 24"><path d="M4 14c2.5-5 4.5-5 6 0s3.5 5 6 0 3-4 4-3"/></svg>';
+
+  const $ = (s) => document.querySelector(s);
+  const canvas = $('#paper'), ctx = canvas.getContext('2d');
+  const ink = document.createElement('canvas'), ictx = ink.getContext('2d');
+  const playBtn = $('#play'), playIcon = $('#playIcon');
+  const toolBtns = { brush: $('#toolBrush'), erase: $('#toolErase'), hand: $('#toolHand') };
+  const undoBtn = $('#undo'), redoBtn = $('#redo'), clearBtn = $('#clear');
+  const tempoIn = $('#tempo'), tempoOut = $('#tempoOut'), scaleIn = $('#scale'), paperIn = $('#paperSize');
+  const sizeIn = $('#size'), sizeOut = $('#sizeOut'), opacityIn = $('#opacity'), brushDot = $('#brushDot');
+  const zoomFitBtn = $('#zoomFit');
+  const hint = $('#hint'), toastEl = $('#toast'), swatchBox = $('#swatches'), paletteBox = $('#palette');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+  let WW = 3200, WH = 2000, paperKind = 'wide';
+  let strokes = [], undoStack = [], redoStack = [], current = null;
+  let inst = 'bell', color = '#2B3FA8', size = 12, alpha = 1, tool = 'brush';
+  let tempo = 104, scale = 'happy', isExample = false;
+  let W = 0, H = 0, dpr = 1, theme = {};
+  const view = { s: 1, ox: 0, oy: 0 };
+  let fitS = 1, userMoved = false, inkDirty = true;
+  let playing = false, everPlayed = false, timer = null;
+  let nextTime = 0, step = 0, anchorT = 0, anchorStep = 0;
+  const visQueue = [], ripples = [], lit = new Set();
+
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const yToRow = (ny) => clamp(Math.floor((1 - ny) * ROWS), 0, ROWS - 1);
+  const drumKind = (row) => (row <= 4 ? 0 : row <= 9 ? 1 : 2); // kick, snare, hat
+  const stepDur = () => 60 / tempo / 4;
+
+  // ---------- turning paint into notes ----------
+
+  function analyze(instId, pts) {
+    const cols = [];
+    const add = (x, y) => {
+      const nx = x / WW, ny = y / WH;
+      const c = clamp(Math.floor(nx * STEPS), 0, STEPS - 1), r = yToRow(ny);
+      const k = cols[c] || (cols[c] = { min: r, max: r, sx: 0, sy: 0, n: 0 });
+      if (r < k.min) k.min = r;
+      if (r > k.max) k.max = r;
+      k.sx += nx; k.sy += ny; k.n++;
+    };
+    add(pts[0][0], pts[0][1]);
+    const spacing = Math.min(WW, WH) * 0.004;
+    for (let i = 1; i < pts.length; i++) {
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+      const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / spacing));
+      for (let j = 1; j <= n; j++) add(x0 + (x1 - x0) * j / n, y0 + (y1 - y0) * j / n);
+    }
+
+    const by = new Array(STEPS).fill(null);
+    for (let c = 0; c < STEPS; c++) {
+      const k = cols[c];
+      if (!k) continue;
+      const x = k.sx / k.n, y = k.sy / k.n;
+      let rows;
+      if (k.max - k.min <= 1) {
+        rows = [yToRow(y)];
+      } else {
+        // A steep part of the line covers many rows in one column: play it as a strummed chord.
+        const cnt = Math.min(instId === 'drums' ? 3 : 4, k.max - k.min + 1);
+        rows = [];
+        for (let i = 0; i < cnt; i++) rows.push(Math.round(k.min + (k.max - k.min) * i / (cnt - 1)));
+      }
+      if (instId === 'drums') {
+        const seen = new Set();
+        rows = rows.filter((r) => !seen.has(drumKind(r)) && seen.add(drumKind(r)));
+      }
+      by[c] = { rows, len: 1, x, y };
+    }
+
+    // Whistle holds a note while the line stays flat instead of re-blowing it every step.
+    if (instId === 'whistle') {
+      let head = null;
+      for (let c = 0; c < STEPS; c++) {
+        const e = by[c];
+        if (e && head && head.end === c - 1 && e.rows.length === 1 && head.rows.length === 1 && e.rows[0] === head.rows[0]) {
+          head.len++; head.end = c; by[c] = null;
+        } else if (e) {
+          head = e; e.end = c;
+        } else {
+          head = null;
+        }
+      }
+    }
+    return by;
+  }
+
+  function buildPath(pts, dotR) {
+    const p = new Path2D();
+    if (dotR) { p.arc(pts[0][0], pts[0][1], dotR, 0, Math.PI * 2); return p; }
+    p.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [x, y] = pts[i], [nx, ny] = pts[i + 1];
+      p.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2);
+    }
+    const l = pts[pts.length - 1];
+    p.lineTo(l[0], l[1]);
+    return p;
+  }
+
+  function makeStroke(o) {
+    const s = { inst: o.inst, color: o.color, size: o.size, alpha: o.alpha, pts: o.pts, hitAt: -1e9 };
+    s.dot = s.pts.length === 1;
+    s.path = buildPath(s.pts, s.dot ? Math.max(0.5, s.size / 2) : 0);
+    s.byStep = analyze(s.inst, s.pts);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of s.pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const h = s.size / 2;
+    s.box = [x0 - h, y0 - h, x1 + h, y1 + h];
+    return s;
+  }
+
+  function paint(c, s, extra = 0) {
+    c.globalAlpha = s.alpha;
+    if (s.dot) {
+      c.fillStyle = s.color;
+      c.fill(s.path);
+      if (extra) { c.strokeStyle = s.color; c.lineWidth = extra; c.stroke(s.path); }
+    } else {
+      c.strokeStyle = s.color;
+      c.lineWidth = s.size + extra;
+      c.stroke(s.path);
+    }
+  }
+
+  // ---------- sound ----------
+
+  let ac = null, master, reverbSend, noiseBuf;
+
+  function ensureAudio() {
+    if (ac) {
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { toast('This browser cannot play sound.'); return null; }
+    ac = new AC({ latencyHint: 'interactive' });
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 4;
+    comp.attack.value = 0.004; comp.release.value = 0.2;
+    comp.connect(ac.destination);
+    master = ac.createGain();
+    master.gain.value = 0.75;
+    master.connect(comp);
+    const verb = ac.createConvolver();
+    verb.buffer = impulse(2.6, 3.2);
+    reverbSend = ac.createGain();
+    reverbSend.gain.value = 0.3;
+    reverbSend.connect(verb);
+    verb.connect(comp);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return ac;
+  }
+
+  function impulse(sec, decay) {
+    const rate = ac.sampleRate, len = Math.floor(rate * sec), b = ac.createBuffer(2, len, rate);
+    for (let c = 0; c < 2; c++) {
+      const d = b.getChannelData(c);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return b;
+  }
+
+  function out(wet) {
+    const g = ac.createGain();
+    g.gain.value = 0.0001;
+    g.connect(master);
+    if (wet) g.connect(reverbSend);
+    return g;
+  }
+
+  function env(g, t, peak, attack, end) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+  }
+
+  function osc(type, freq, t, stop, dest) {
+    const o = ac.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    o.connect(dest);
+    o.start(t);
+    o.stop(stop);
+    return o;
+  }
+
+  function noise(t, stop, dest) {
+    const s = ac.createBufferSource();
+    s.buffer = noiseBuf;
+    s.connect(dest);
+    s.start(t, Math.random() * 0.5);
+    s.stop(stop);
+  }
+
+  const voices = {
+    bell(t, f, v) {
+      const g = out(true), mg = ac.createGain();
+      const car = osc('sine', f, t, t + 1.7, g);
+      mg.connect(car.frequency);
+      mg.gain.setValueAtTime(f * 1.6, t);
+      mg.gain.exponentialRampToValueAtTime(f * 0.05, t + 0.6);
+      osc('sine', f * 3.01, t, t + 1.7, mg);
+      env(g, t, v * 0.42, 0.004, t + 1.6);
+    },
+    pluck(t, f, v) {
+      const g = out(true), lp = ac.createBiquadFilter(), g2 = ac.createGain();
+      lp.type = 'lowpass';
+      lp.Q.value = 3;
+      lp.frequency.setValueAtTime(Math.min(9000, f * 10), t);
+      lp.frequency.exponentialRampToValueAtTime(Math.max(120, f * 1.2), t + 0.35);
+      lp.connect(g);
+      g2.gain.value = 0.4;
+      g2.connect(lp);
+      osc('sawtooth', f, t, t + 0.75, lp);
+      osc('square', f * 1.004, t, t + 0.75, g2);
+      env(g, t, v * 0.3, 0.003, t + 0.7);
+    },
+    whistle(t, f, v, dur) {
+      const g = out(true), g2 = ac.createGain(), lg = ac.createGain(), end = t + Math.max(0.08, dur);
+      const o = osc('triangle', f, t, end + 0.35, g);
+      g2.gain.value = 0.22;
+      g2.connect(g);
+      const o2 = osc('sine', f * 2, t, end + 0.35, g2);
+      lg.gain.setValueAtTime(0, t);
+      lg.gain.linearRampToValueAtTime(f * 0.008, t + 0.25);
+      lg.connect(o.frequency);
+      lg.connect(o2.frequency);
+      osc('sine', 5.2, t, end + 0.35, lg);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(v * 0.3, t + 0.05);
+      g.gain.setValueAtTime(v * 0.3, Math.max(t + 0.05, end));
+      g.gain.exponentialRampToValueAtTime(0.0001, end + 0.3);
+    },
+    bass(t, f, v) {
+      const g = out(false), lp = ac.createBiquadFilter(), sg = ac.createGain();
+      lp.type = 'lowpass';
+      lp.Q.value = 6;
+      lp.frequency.setValueAtTime(f * 8, t);
+      lp.frequency.exponentialRampToValueAtTime(f * 1.5, t + 0.25);
+      lp.connect(g);
+      sg.gain.value = 0.7;
+      sg.connect(g);
+      osc('sawtooth', f, t, t + 0.55, lp);
+      osc('sine', f, t, t + 0.55, sg);
+      env(g, t, v * 0.42, 0.005, t + 0.5);
+    },
+    drums(t, row, v) {
+      const r = row / (ROWS - 1), kind = drumKind(row);
+      if (kind === 0) {
+        const g = out(false);
+        const o = osc('sine', 160 + r * 300, t, t + 0.45, g);
+        o.frequency.setValueAtTime(160 + r * 300, t);
+        o.frequency.exponentialRampToValueAtTime(42, t + 0.13);
+        env(g, t, v * 0.95, 0.002, t + 0.4);
+      } else if (kind === 1) {
+        const g = out(true), bp = ac.createBiquadFilter(), tg = ac.createGain();
+        bp.type = 'bandpass';
+        bp.frequency.value = 1200 + (r - 0.34) * 4000;
+        bp.Q.value = 0.9;
+        bp.connect(g);
+        noise(t, t + 0.25, bp);
+        env(g, t, v * 0.55, 0.002, t + 0.2);
+        tg.connect(master);
+        const o = osc('triangle', 170 + r * 120, t, t + 0.15, tg);
+        o.frequency.exponentialRampToValueAtTime(110, t + 0.08);
+        env(tg, t, v * 0.3, 0.002, t + 0.12);
+      } else {
+        const g = out(false), hp = ac.createBiquadFilter(), open = row >= ROWS - 1;
+        hp.type = 'highpass';
+        hp.frequency.value = 6500 + (r - 0.67) * 6000;
+        hp.connect(g);
+        noise(t, t + 0.35, hp);
+        env(g, t, v * 0.28, 0.001, t + (open ? 0.3 : 0.06));
+      }
+    },
+  };
+
+  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  function rowToMidi(row, instId) {
+    const sc = SCALES[scale], n = sc.length;
+    return BASE[instId] + 12 * Math.floor(row / n) + sc[row % n];
+  }
+
+  function playNote(instId, row, t, v, len) {
+    if (instId === 'drums') voices.drums(t, row, v);
+    else if (instId === 'whistle') voices.whistle(t, mtof(rowToMidi(row, instId)), v, len * stepDur());
+    else voices[instId](t, mtof(rowToMidi(row, instId)), v);
+  }
+
+  // ---------- the loop ----------
+
+  function schedule() {
+    if (!playing) return;
+    if (nextTime < ac.currentTime - 0.05) nextTime = ac.currentTime + 0.02; // tab was asleep
+    while (nextTime < ac.currentTime + 0.12) {
+      playStep(step, nextTime);
+      anchorT = nextTime;
+      anchorStep = step;
+      nextTime += stepDur();
+      step = (step + 1) % STEPS;
+    }
+  }
+
+  // A detailed drawing can have hundreds of marks in one column. Identical notes are
+  // merged, and if there are still too many, an even spread of them is kept, so a
+  // busy portrait plays as rich chords instead of noise.
+  function playStep(st, t) {
+    const notes = new Map(), lightUp = [], rip = [];
+    for (const s of strokes) {
+      const ev = s.byStep[st];
+      if (!ev) continue;
+      if (lightUp.length < 48) lightUp.push(s);
+      if (rip.length < 14) rip.push({ x: ev.x * WW, y: ev.y * WH, inst: s.inst, r: s.size / 2 });
+      ev.rows.forEach((row, i) => {
+        const k = s.inst + row, n = notes.get(k);
+        if (!n) notes.set(k, { inst: s.inst, row, len: ev.len, o: i });
+        else if (ev.len > n.len) n.len = ev.len;
+      });
+    }
+    if (!notes.size) return;
+    let list = [...notes.values()];
+    if (list.length > MAX_VOICES) {
+      list.sort((a, b) => (a.inst < b.inst ? -1 : a.inst > b.inst ? 1 : a.row - b.row));
+      list = Array.from({ length: MAX_VOICES }, (_, i) => list[Math.floor(i * list.length / MAX_VOICES)]);
+    }
+    const v = 1 / Math.sqrt(list.length);
+    for (const n of list) playNote(n.inst, n.row, t + n.o * 0.014, v, n.len);
+    visQueue.push({ t, lightUp, rip });
+  }
+
+  function start() {
+    if (!ensureAudio()) return;
+    playing = true;
+    everPlayed = true;
+    nextTime = ac.currentTime + 0.06;
+    clearInterval(timer);
+    timer = setInterval(schedule, 25);
+    schedule();
+    updatePlay();
+  }
+
+  function stop() {
+    playing = false;
+    clearInterval(timer);
+    visQueue.length = 0;
+    updatePlay();
+  }
+
+  const toggle = () => (playing ? stop() : start());
+
+  let lastLive = { c: -1, row: -1, t: 0 };
+  function livePreview(wx, wy) {
+    if (!ac) return;
+    const c = clamp(Math.floor(wx / WW * STEPS), 0, STEPS - 1), row = yToRow(wy / WH), now = performance.now();
+    if ((c === lastLive.c && row === lastLive.row) || now - lastLive.t < 70) return;
+    lastLive = { c, row, t: now };
+    playNote(current.inst, row, ac.currentTime + 0.005, 0.8, 1);
+  }
+
+  // ---------- view ----------
+
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ['bg', 'paper', 'paper-shadow', 'muted']) theme[k] = cs.getPropertyValue('--' + k).trim();
+    inkDirty = true;
+  }
+
+  function freeRect() {
+    const rail = $('#rail').getBoundingClientRect(), top = $('#topbar').getBoundingClientRect();
+    const dock = $('#dockInner').getBoundingClientRect();
+    const x = rail.right + 18, y = top.bottom + 30;
+    return { x, y, w: Math.max(120, W - 18 - x), h: Math.max(120, dock.top - 18 - y) };
+  }
+
+  function fit() {
+    const r = freeRect(), s = Math.min(r.w / WW, r.h / WH);
+    view.s = fitS = s;
+    view.ox = r.x + (r.w - WW * s) / 2;
+    view.oy = r.y + (r.h - WH * s) / 2;
+    userMoved = false;
+    viewChanged();
+  }
+
+  function viewChanged() {
+    inkDirty = true;
+    zoomFitBtn.textContent = Math.round(view.s / fitS * 100) + '%';
+    document.body.classList.toggle('zoomed', userMoved);
+    updateBrushPreview();
+  }
+
+  function moved() {
+    userMoved = true;
+    viewChanged();
+  }
+
+  function zoomAt(sx, sy, f) {
+    const ns = clamp(view.s * f, fitS * 0.5, Math.max(6, fitS * 4));
+    const wx = (sx - view.ox) / view.s, wy = (sy - view.oy) / view.s;
+    view.s = ns;
+    view.ox = sx - wx * ns;
+    view.oy = sy - wy * ns;
+    moved();
+  }
+
+  const toWorld = (sx, sy) => [(sx - view.ox) / view.s, (sy - view.oy) / view.s];
+  const onPaper = (wx, wy) => wx >= 0 && wy >= 0 && wx <= WW && wy <= WH;
+
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+    canvas.width = ink.width = Math.round(W * dpr);
+    canvas.height = ink.height = Math.round(H * dpr);
+    if (userMoved) viewChanged(); else fit();
+  }
+
+  // ---------- drawing ----------
+
+  // Finished strokes are painted once into an offscreen canvas and only redrawn when
+  // the drawing or the view changes, so big drawings stay smooth while the music plays.
+  function renderInk() {
+    inkDirty = false;
+    const px = view.ox, py = view.oy, pw = WW * view.s, ph = WH * view.s;
+    ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ictx.globalAlpha = 1;
+    ictx.fillStyle = theme.bg;
+    ictx.fillRect(0, 0, W, H);
+
+    // bar numbers above the paper: one loop is four bars
+    ictx.fillStyle = theme.muted;
+    ictx.strokeStyle = theme.muted;
+    ictx.lineWidth = 1;
+    ictx.font = '600 11px "Shantell Sans", ui-rounded, system-ui, sans-serif';
+    ictx.textBaseline = 'bottom';
+    for (let b = 0; b < 4; b++) {
+      const x = px + b / 4 * pw;
+      ictx.beginPath();
+      ictx.moveTo(x + 0.5, py - 12);
+      ictx.lineTo(x + 0.5, py - 3);
+      ictx.stroke();
+      ictx.fillText('bar ' + (b + 1), x + 5, py - 3);
+    }
+
+    ictx.save();
+    ictx.shadowColor = theme['paper-shadow'];
+    ictx.shadowBlur = 28;
+    ictx.shadowOffsetY = 8;
+    ictx.fillStyle = theme.paper;
+    ictx.fillRect(px, py, pw, ph);
+    ictx.restore();
+
+    ictx.save();
+    ictx.beginPath();
+    ictx.rect(px, py, pw, ph);
+    ictx.clip();
+    ictx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+    ictx.lineCap = 'round';
+    ictx.lineJoin = 'round';
+    const vx0 = -view.ox / view.s, vy0 = -view.oy / view.s, vx1 = (W - view.ox) / view.s, vy1 = (H - view.oy) / view.s;
+    for (const s of strokes) {
+      const b = s.box;
+      if (b[2] < vx0 || b[0] > vx1 || b[3] < vy0 || b[1] > vy1) continue;
+      paint(ictx, s);
+    }
+    ictx.restore();
+  }
+
+  function frame() {
+    const now = performance.now();
+    if (ac) {
+      while (visQueue.length && visQueue[0].t <= ac.currentTime) {
+        const e = visQueue.shift();
+        for (const s of e.lightUp) { s.hitAt = now; lit.delete(s); lit.add(s); }
+        for (const r of e.rip) { r.born = now; ripples.push(r); }
+      }
+      if (ripples.length > 60) ripples.splice(0, ripples.length - 60);
+    }
+    if (inkDirty) renderInk();
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.drawImage(ink, 0, 0);
+
+    const px = view.ox, py = view.oy, pw = WW * view.s, ph = WH * view.s;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    ctx.rect(px, py, pw, ph);
+    ctx.clip();
+
+    if (playing && ac) {
+      const pos = (((anchorStep + (ac.currentTime - anchorT) / stepDur()) % STEPS) + STEPS) % STEPS;
+      const x = px + pos / STEPS * pw;
+      const grad = ctx.createLinearGradient(x - 48, 0, x, 0);
+      grad.addColorStop(0, 'rgba(29,33,64,0)');
+      grad.addColorStop(1, 'rgba(29,33,64,0.12)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x - 48, py, 48, ph);
+      ctx.fillStyle = 'rgba(29,33,64,0.35)';
+      ctx.fillRect(x - 1, py, 2, ph);
+    }
+
+    ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // marks that just played glow in their instrument's color
+    let shown = 0;
+    const litArr = [...lit];
+    for (let i = litArr.length - 1; i >= 0; i--) {
+      const s = litArr[i], g = 1 - (now - s.hitAt) / 450;
+      if (g <= 0) { lit.delete(s); continue; }
+      if (shown++ >= 48) continue;
+      ctx.shadowColor = INST_COLOR[s.inst];
+      ctx.shadowBlur = 18 * g * dpr;
+      paint(ctx, s, (reduceMotion.matches ? 1 : 4) * g / view.s);
+    }
+    ctx.shadowBlur = 0;
+
+    if (current) {
+      const dot = current.pts.length === 1;
+      paint(ctx, { ...current, dot, path: buildPath(current.pts, dot ? Math.max(0.5, current.size / 2) : 0) });
+    }
+
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const r = ripples[i], age = (now - r.born) / 650;
+      if (age >= 1) { ripples.splice(i, 1); continue; }
+      ctx.globalAlpha = 1 - age;
+      ctx.strokeStyle = INST_COLOR[r.inst];
+      ctx.lineWidth = (2.5 * (1 - age) + 0.5) / view.s;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.r + (6 + age * (reduceMotion.matches ? 12 : 34)) / view.s, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    if (hover && hover.on && mode !== 'pan' && mode !== 'pinch' && (tool === 'brush' || tool === 'erase')) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.strokeStyle = 'rgba(29,33,64,0.55)';
+      ctx.lineWidth = 1;
+      if (tool === 'erase') ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(hover.x, hover.y, tool === 'erase' ? ERASE_PX : Math.max(1.5, size / 2 * view.s), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- pointer ----------
+
+  const ERASE_PX = 16;
+  const ptrs = new Map();
+  let mode = null, drawId = null, panLast = null, pinch = null, strokeStartAt = 0;
+  let hover = null, erasedThisGesture = false;
+
+  function segDist(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    const t = l2 ? clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1) : 0;
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+
+  function strokeNear(s, x, y, r) {
+    const b = s.box;
+    if (x < b[0] - r || x > b[2] + r || y < b[1] - r || y > b[3] + r) return false;
+    const p = s.pts, reach = r + s.size / 2;
+    if (p.length === 1) return Math.hypot(p[0][0] - x, p[0][1] - y) < reach;
+    for (let i = 1; i < p.length; i++) {
+      if (segDist(x, y, p[i - 1][0], p[i - 1][1], p[i][0], p[i][1]) < reach) return true;
+    }
+    return false;
+  }
+
+  function eraseAt(sx, sy) {
+    const [x, y] = toWorld(sx, sy), r = ERASE_PX / view.s;
+    const keep = strokes.filter((s) => !strokeNear(s, x, y, r));
+    if (keep.length === strokes.length) return;
+    if (!erasedThisGesture) { pushUndo(); erasedThisGesture = true; }
+    strokes = keep;
+    changed();
+  }
+
+  function addPoint(sx, sy) {
+    const last = current.pts[current.pts.length - 1];
+    const [wx, wy] = toWorld(sx, sy);
+    if (Math.hypot(wx - last[0], wy - last[1]) * view.s < 1.5 || current.pts.length >= MAX_POINTS) return;
+    const pt = [clamp(wx, 0, WW), clamp(wy, 0, WH)];
+    current.pts.push(pt);
+    livePreview(pt[0], pt[1]);
+  }
+
+  function setCursor() {
+    let c = 'crosshair';
+    if (mode === 'pan' || mode === 'pinch') c = 'grabbing';
+    else if (tool === 'hand' || (hover && !hover.on)) c = 'grab';
+    else if (tool === 'erase') c = 'cell';
+    if (canvas.style.cursor !== c) canvas.style.cursor = c;
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    ensureAudio();
+    canvas.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (ptrs.size === 2) {
+      // A second finger means pinch or pan, unless a stroke is already well underway.
+      if (mode === 'draw' && performance.now() - strokeStartAt > 300) { ptrs.delete(e.pointerId); return; }
+      current = null;
+      const [a, b] = [...ptrs.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, s: view.s, ox: view.ox, oy: view.oy };
+      mode = 'pinch';
+      setCursor();
+      return;
+    }
+    if (ptrs.size > 2) return;
+
+    const [wx, wy] = toWorld(e.clientX, e.clientY);
+    if (e.button === 1 || tool === 'hand' || !onPaper(wx, wy)) {
+      mode = 'pan';
+      panLast = { x: e.clientX, y: e.clientY };
+    } else if (e.button !== 0) {
+      mode = null;
+    } else if (tool === 'erase') {
+      mode = 'erase';
+      erasedThisGesture = false;
+      eraseAt(e.clientX, e.clientY);
+    } else {
+      mode = 'draw';
+      drawId = e.pointerId;
+      strokeStartAt = performance.now();
+      lastLive = { c: -1, row: -1, t: 0 };
+      current = { inst, color, size, alpha, pts: [[wx, wy]] };
+      livePreview(wx, wy);
+    }
+    setCursor();
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    const [hx, hy] = toWorld(e.clientX, e.clientY);
+    hover = { x: e.clientX, y: e.clientY, on: onPaper(hx, hy) };
+    const p = ptrs.get(e.pointerId);
+    if (p) { p.x = e.clientX; p.y = e.clientY; }
+
+    if (mode === 'pinch') {
+      if (ptrs.size < 2) return;
+      const [a, b] = [...ptrs.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      const ns = clamp(pinch.s * d / pinch.d, fitS * 0.5, Math.max(6, fitS * 4));
+      const wx = (pinch.cx - pinch.ox) / pinch.s, wy = (pinch.cy - pinch.oy) / pinch.s;
+      view.s = ns;
+      view.ox = cx - wx * ns;
+      view.oy = cy - wy * ns;
+      moved();
+    } else if (mode === 'pan') {
+      view.ox += e.clientX - panLast.x;
+      view.oy += e.clientY - panLast.y;
+      panLast = { x: e.clientX, y: e.clientY };
+      moved();
+    } else if (mode === 'erase') {
+      eraseAt(e.clientX, e.clientY);
+    } else if (mode === 'draw' && current && e.pointerId === drawId) {
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+      for (const ev of evs.length ? evs : [e]) addPoint(ev.clientX, ev.clientY);
+    }
+    setCursor();
+  });
+
+  function pointerEnd(e) {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.delete(e.pointerId);
+    if (mode === 'draw' && e.pointerId === drawId && current) finishStroke();
+    if (!ptrs.size) mode = null;
+    setCursor();
+  }
+  canvas.addEventListener('pointerup', pointerEnd);
+  canvas.addEventListener('pointercancel', pointerEnd);
+  canvas.addEventListener('pointerleave', () => { hover = null; });
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const k = e.deltaMode === 1 ? 16 : 1;
+    if (e.ctrlKey || e.metaKey) {
+      zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * k * 0.01));
+    } else {
+      view.ox -= e.deltaX * k;
+      view.oy -= e.deltaY * k;
+      moved();
+    }
+  }, { passive: false });
+
+  function finishStroke() {
+    const s = makeStroke(current);
+    current = null;
+    pushUndo();
+    strokes.push(s);
+    if (strokes.length > MAX_STROKES) strokes.shift();
+    s.hitAt = performance.now();
+    lit.add(s);
+    setExample(false);
+    changed();
+    if (!playing && !everPlayed) start();
+  }
+
+  // ---------- edits ----------
+
+  function pushUndo() {
+    undoStack.push(strokes.slice());
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack.length = 0;
+  }
+
+  function changed() {
+    inkDirty = true;
+    undoBtn.disabled = !undoStack.length;
+    redoBtn.disabled = !redoStack.length;
+    updatePlay();
+    save();
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    redoStack.push(strokes);
+    strokes = undoStack.pop();
+    changed();
+  }
+
+  function redo() {
+    if (!redoStack.length) return;
+    undoStack.push(strokes);
+    strokes = redoStack.pop();
+    changed();
+  }
+
+  function clearAll() {
+    if (!strokes.length) return;
+    pushUndo();
+    strokes = [];
+    setExample(false);
+    changed();
+    toast('Cleared. Undo brings it back.');
+  }
+
+  // ---------- controls ----------
+
+  function setInst(id) {
+    inst = id;
+    for (const b of swatchBox.children) b.setAttribute('aria-checked', String(b.dataset.inst === id));
+    if (tool !== 'brush') setTool('brush');
+    save();
+  }
+
+  function setColor(c) {
+    color = c;
+    let match = false;
+    for (const b of paletteBox.querySelectorAll('.chip')) {
+      const on = b.dataset.color.toLowerCase() === c.toLowerCase();
+      if (on) match = true;
+      b.setAttribute('aria-checked', String(on));
+    }
+    const custom = paletteBox.querySelector('.custom');
+    custom.classList.toggle('on', !match);
+    custom.style.setProperty('--c', c);
+    if (!match) custom.querySelector('input').value = c;
+    if (tool !== 'brush') setTool('brush');
+    updateBrushPreview();
+    save();
+  }
+
+  function setTool(t) {
+    tool = t;
+    for (const [k, b] of Object.entries(toolBtns)) b.setAttribute('aria-pressed', String(k === t));
+    setCursor();
+  }
+
+  function setSize(v) {
+    size = clamp(Math.round(v), 1, 120);
+    sizeIn.value = size;
+    sizeOut.textContent = size;
+    updateBrushPreview();
+    save();
+  }
+
+  function updateBrushPreview() {
+    const d = clamp(size * view.s, 2, 36);
+    brushDot.style.width = brushDot.style.height = d + 'px';
+    brushDot.style.setProperty('--c', color);
+    brushDot.style.opacity = alpha;
+  }
+
+  function setPaper(kind) {
+    if (!PAPERS[kind]) return;
+    paperKind = kind;
+    [WW, WH] = PAPERS[kind];
+    paperIn.value = kind;
+    const seen = new Set([...strokes, ...undoStack.flat(), ...redoStack.flat()]);
+    for (const s of seen) s.byStep = analyze(s.inst, s.pts);
+    fit();
+  }
+
+  function setExample(on) {
+    isExample = on;
+    hint.textContent = on
+      ? 'This is an example drawing. Press play to hear it, then clear it and paint your own.'
+      : 'Paint on the paper and it plays from left to right. Higher marks are higher notes.';
+  }
+
+  function updatePlay() {
+    playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    playIcon.innerHTML = playing
+      ? '<rect x="6.5" y="5.5" width="4" height="13" rx="1.2"/><rect x="13.5" y="5.5" width="4" height="13" rx="1.2"/>'
+      : '<path d="M8 5.5v13l10.5-6.5z"/>';
+    playBtn.classList.toggle('nudge', !playing && !everPlayed && strokes.length > 0);
+  }
+
+  let toastTimer = 0;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
+  }
+
+  for (const id of INSTS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tile swatch';
+    b.dataset.inst = id;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', 'false');
+    b.title = `${NAMES[id]} (${INSTS.indexOf(id) + 1})`;
+    b.style.setProperty('--c', `var(--${id})`);
+    b.innerHTML = `<span class="face">${SWATCH_ICON}</span>${NAMES[id]}`;
+    b.addEventListener('click', () => {
+      setInst(id);
+      if (ensureAudio()) playNote(id, id === 'drums' ? 2 : 7, ac.currentTime + 0.01, 0.9, 2);
+    });
+    swatchBox.appendChild(b);
+  }
+
+  for (const [name, hex] of PALETTE) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.dataset.color = hex;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', 'false');
+    b.setAttribute('aria-label', name);
+    b.title = name;
+    b.style.setProperty('--c', hex);
+    b.addEventListener('click', () => setColor(hex));
+    paletteBox.appendChild(b);
+  }
+  {
+    const label = document.createElement('label');
+    label.className = 'custom';
+    label.title = 'Pick any color';
+    label.innerHTML = '<input type="color" id="customColor" aria-label="Pick any color" value="#2B3FA8">';
+    label.querySelector('input').addEventListener('input', (e) => setColor(e.target.value));
+    paletteBox.appendChild(label);
+  }
+
+  playBtn.addEventListener('click', toggle);
+  for (const [k, b] of Object.entries(toolBtns)) b.addEventListener('click', () => setTool(k));
+  undoBtn.addEventListener('click', undo);
+  redoBtn.addEventListener('click', redo);
+  clearBtn.addEventListener('click', clearAll);
+  $('#zoomIn').addEventListener('click', () => zoomAt(W / 2, H / 2, 1.4));
+  $('#zoomOut').addEventListener('click', () => zoomAt(W / 2, H / 2, 1 / 1.4));
+  zoomFitBtn.addEventListener('click', fit);
+  tempoIn.addEventListener('input', () => { tempo = +tempoIn.value; tempoOut.textContent = tempo; save(); });
+  scaleIn.addEventListener('change', () => { scale = scaleIn.value; save(); });
+  paperIn.addEventListener('change', () => { setPaper(paperIn.value); save(); });
+  sizeIn.addEventListener('input', () => setSize(+sizeIn.value));
+  opacityIn.addEventListener('input', () => { alpha = +opacityIn.value / 100; updateBrushPreview(); save(); });
+
+  addEventListener('keydown', (e) => {
+    const tag = e.target.tagName, key = e.key.toLowerCase();
+    if ((e.metaKey || e.ctrlKey) && key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if ((e.metaKey || e.ctrlKey) && key === 'y') { e.preventDefault(); redo(); return; }
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space') {
+      if (tag === 'BUTTON') return;
+      e.preventDefault();
+      toggle();
+    } else if (key >= '1' && key <= '5') setInst(INSTS[+key - 1]);
+    else if (key === 'b') setTool('brush');
+    else if (key === 'e') setTool('erase');
+    else if (key === 'h') setTool('hand');
+    else if (key === '[') setSize(size > 10 ? size * 0.8 : size - 1);
+    else if (key === ']') setSize(size >= 10 ? size * 1.25 : size + 1);
+    else if (key === '=' || key === '+') zoomAt(W / 2, H / 2, 1.4);
+    else if (key === '-') zoomAt(W / 2, H / 2, 1 / 1.4);
+    else if (key === '0') fit();
+  });
+
+  // ---------- saving ----------
+
+  // Points are stored as half-unit integer deltas to keep big drawings small.
+  function encode(pts) {
+    const outArr = [];
+    let px = 0, py = 0;
+    for (const [x, y] of pts) {
+      const ix = Math.round(x * 2), iy = Math.round(y * 2);
+      outArr.push(ix - px, iy - py);
+      px = ix; py = iy;
+    }
+    return outArr;
+  }
+
+  function decode(arr) {
+    const pts = [];
+    let x = 0, y = 0;
+    for (let i = 0; i + 1 < arr.length; i += 2) { x += arr[i]; y += arr[i + 1]; pts.push([x / 2, y / 2]); }
+    return pts;
+  }
+
+  let saveTimer = 0, warnedFull = false;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+          paper: paperKind, tempo, scale, inst, color, size, alpha, example: isExample,
+          strokes: strokes.map((s) => ({ i: s.inst, c: s.color, w: s.size, a: s.alpha, p: encode(s.pts) })),
+        }));
+      } catch (e) {
+        if (!warnedFull && e && e.name === 'QuotaExceededError') {
+          warnedFull = true;
+          toast('This drawing is too big to save in the browser.');
+        }
+      }
+    }, 600);
+  }
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (!d || !Array.isArray(d.strokes)) return false;
+      if (PAPERS[d.paper]) { paperKind = d.paper; [WW, WH] = PAPERS[d.paper]; }
+      tempo = clamp(+d.tempo || 104, 60, 160);
+      if (SCALES[d.scale]) scale = d.scale;
+      if (INSTS.includes(d.inst)) inst = d.inst;
+      if (/^#[0-9a-f]{6}$/i.test(d.color)) color = d.color;
+      size = clamp(+d.size || 12, 1, 120);
+      alpha = clamp(+d.alpha || 1, 0.1, 1);
+      strokes = d.strokes
+        .filter((s) => INSTS.includes(s.i) && Array.isArray(s.p) && s.p.length >= 2)
+        .map((s) => makeStroke({ inst: s.i, color: s.c || INST_COLOR[s.i], size: clamp(+s.w || 12, 1, 120), alpha: clamp(+s.a || 1, 0.1, 1), pts: decode(s.p) }));
+      isExample = !!d.example;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // A small landscape that also makes a tune: sun chords, hill basslines, a river riff, flower drums.
+  function exampleDrawing() {
+    const list = [];
+    const add = (o) => list.push(makeStroke({ alpha: 1, ...o }));
+    const line = (instId, col, sz, f, from, to, n = 120) => {
+      const pts = [];
+      for (let i = 0; i <= n; i++) {
+        const nx = from + (to - from) * i / n;
+        pts.push([nx * WW, f(nx) * WH]);
+      }
+      add({ inst: instId, color: col, size: sz, pts });
+    };
+    const dot = (instId, col, sz, st, ny) => add({ inst: instId, color: col, size: sz, pts: [[(st + 0.5) / STEPS * WW, ny * WH]] });
+
+    const sun = [];
+    for (let i = 0; i <= 90; i++) {
+      const a = i / 90 * Math.PI * 2;
+      sun.push([(0.8 + 0.06 * Math.cos(a)) * WW, 0.24 * WH + 0.06 * WW * Math.sin(a)]);
+    }
+    add({ inst: 'bell', color: '#F5C83A', size: 22, pts: sun });
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * Math.PI * 2, cx = 0.8 * WW, cy = 0.24 * WH, r0 = 0.08 * WW, r1 = 0.1 * WW;
+      add({ inst: 'bell', color: '#F07C1E', size: 10, pts: [[cx + r0 * Math.cos(a), cy + r0 * Math.sin(a)], [cx + r1 * Math.cos(a), cy + r1 * Math.sin(a)]] });
+    }
+    line('bass', '#2E5A3A', 26, (x) => 0.78 - 0.24 * Math.sin(Math.PI * x / 0.62), 0, 0.62);
+    line('whistle', '#7C9A64', 26, (x) => 0.82 - 0.2 * Math.sin(Math.PI * (x - 0.38) / 0.62), 0.38, 1);
+    line('pluck', '#1F7A8C', 14, (x) => 0.92 + 0.025 * Math.sin(x * Math.PI * 16), 0.04, 0.5, 200);
+    for (const bx of [0.18, 0.27]) {
+      line('pluck', '#4A4A55', 6, (x) => 0.2 - 0.03 * Math.abs(Math.sin((x - bx) / 0.05 * Math.PI * 2)), bx, bx + 0.05, 30);
+    }
+    for (const st of [0, 6, 16, 22, 32, 38, 48, 54]) dot('drums', '#C8273E', 24, st, 0.885);
+    for (const st of [8, 24, 40, 56]) dot('drums', '#F08BB0', 20, st, 0.6);
+    for (let st = 2; st < STEPS; st += 4) dot('drums', '#9A9AA6', 8, st, 0.1);
+    return list;
+  }
+
+  // ---------- start ----------
+
+  readTheme();
+  const loaded = load();
+  W = canvas.clientWidth;
+  H = canvas.clientHeight;
+  if (!loaded) {
+    if (H > W) { paperKind = 'tall'; [WW, WH] = PAPERS.tall; }
+    strokes = exampleDrawing();
+    isExample = true;
+  }
+  tempoIn.value = tempo;
+  tempoOut.textContent = tempo;
+  scaleIn.value = scale;
+  paperIn.value = paperKind;
+  sizeIn.value = size;
+  sizeOut.textContent = size;
+  opacityIn.value = Math.round(alpha * 100);
+  setInst(inst);
+  setColor(color);
+  setTool('brush');
+  setExample(isExample);
+  resize();
+  changed();
+
+  addEventListener('resize', resize);
+  const scheme = matchMedia('(prefers-color-scheme: dark)');
+  (scheme.addEventListener ? scheme.addEventListener('change', readTheme) : scheme.addListener(readTheme));
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--dock-h', $('#dockInner').offsetHeight + 'px');
+      if (!userMoved) fit();
+    });
+    for (const el of [$('#dockInner'), $('#topbar'), $('#rail')]) ro.observe(el);
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { inkDirty = true; });
+  requestAnimationFrame(frame);
+})();
+</script>

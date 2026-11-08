@@ -1,0 +1,9 @@
+{
+  // Squiggle: static assets only, served from dist/ (./build.sh deploy)
+  "name": "squiggle",
+  "compatibility_date": "2025-10-01",
+  "assets": { "directory": "dist" },
+  // squiggle.rennko.tech/* is more specific than Rennko Cloud's *.rennko.tech/* route, so this host stays here
+  "routes": [{ "pattern": "squiggle.rennko.tech", "custom_domain": true }, { "pattern": "squiggle.rennko.tech/*", "zone_name": "rennko.tech" }],
+  "workers_dev": true
+}
